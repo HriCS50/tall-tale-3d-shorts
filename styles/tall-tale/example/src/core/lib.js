@@ -22,6 +22,12 @@ export const seg = (t, a, b) => clamp((t - a) / ((b - a) || 1e-6));
 export const eo = (t) => 1 - Math.pow(1 - t, 3);
 export const eio = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 export const eob = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+// Extended Penner eases (added 2026-11-09, ported as closed-form math — no GSAP dependency).
+// Use for accents: ebn = bounce landings, eel = elastic wobbles, eex = fast expo arrivals, esi = gentle sine sway.
+export const eex = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+export const esi = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+export const eel = (t) => { const c4 = (2 * Math.PI) / 3; return t <= 0 ? 0 : t >= 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1; };
+export const ebn = (t) => { const n1 = 7.5625, d1 = 2.75; if (t < 1 / d1) return n1 * t * t; if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75; if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375; return n1 * (t -= 2.625 / d1) * t + 0.984375; };
 export const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 export const TAU = Math.PI * 2;
 

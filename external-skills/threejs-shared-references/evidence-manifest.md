@@ -1,0 +1,52 @@
+# Current-Run Evidence
+
+The manifest declares what one verification pass must capture. It checks coverage and file existence, not artistic quality, gameplay correctness, or whether an acknowledged state was implemented faithfully. Inspect the pictures, exercise real input, and check motion when animation matters.
+
+## Declare the Capture Set
+
+Choose states and viewports from the change before capturing. A full desktop/mobile game needs active play in both plus relevant failure, late-game, or stress states. A narrow desktop HUD fix can use only the affected desktop state. Do not drop a required entry because its capture failed. Use a fresh run ID and output directory when code or assets change; never relabel old reports as new evidence.
+
+Write `artifacts/evidence.json` in the game project:
+
+```json
+{
+  "version": 1,
+  "runId": "pass-1",
+  "captures": [
+    {
+      "mode": "desktop",
+      "state": "active-play",
+      "report": "artifacts/pass-1/desktop-active-play.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "active-play",
+      "report": "artifacts/pass-1/mobile-active-play.json"
+    }
+  ],
+  "artifacts": ["assets/models/hero.glb", "artifacts/pass-1/locomotion.webm"]
+}
+```
+
+`captures` must be nonempty, with distinct viewport/state pairs and report paths. `mode` is `desktop` or `mobile`. `state` is an exact hook state or explicitly `null` for an uncontrolled current-view capture; null does not prove active play or a boss encounter. `artifacts` is optional: declare only files this change actually requires. All relative paths resolve from the game project, not the manifest directory. Absolute paths and spaces are supported; project-relative paths are more portable.
+
+## Capture and Check
+
+From the project with its server running:
+
+```bash
+node <threejs-qa-release-skill-dir>/scripts/inspect-threejs-canvas.mjs \
+  --manifest artifacts/evidence.json --url http://127.0.0.1:5188 --seed 42
+```
+
+The inspector writes each report to its declared path, with the screenshot beside it (same name, `.png`), and prints one summary line per capture. Screenshots are saved at CSS pixel size, so a mobile capture is 390 px wide rather than device resolution.
+
+A named state calls and awaits `setState(name)`. The hook must finish scene setup and return `{ state: name }`. Named captures also require `setPausedForScreenshot(paused)`, which immediately stops simulation/state transitions while rendering continues. The inspector freezes immediately after setup, then awaits visual stabilization and rendered frames within a bounded preparation timeout. Missing hooks, unknown states, timeouts, or mismatched acknowledgments fail. Explicit `--seed` likewise requires a working seed hook. Implement hooks for real project states instead of faking acknowledgments. The inspector records `state`, `requestedState`, `appliedState`, and `runId` alongside existing diagnostics, pixel metrics, and screenshot paths.
+
+Run the standalone inspector from the game directory. It resolves Playwright and PNG dependencies from its own installation or that project's npm packages; if missing, install `@playwright/test` and `pngjs` in the game, then `npx playwright install --no-shell chromium`. No npm dependencies need to live inside globally installed skills.
+
+This subset includes the inspector, not the upstream director's separate evidence checker. Review the declared reports for matching run ID, viewport, state, nonblank pixels, and browser errors. Motion, audio, and aesthetic quality require direct inspection. Tall Tale video work uses the root capture and QA workflow.
+
+## Reports and Legacy Use
+
+Put detailed findings in `artifacts/final-evidence.md` and keep the user-facing close-out concise. Markdown artifact links may be absolute or project-relative; use angle brackets for paths with spaces or parentheses, such as `[motion](<artifacts/pass-1/hero motion.webm>)`.

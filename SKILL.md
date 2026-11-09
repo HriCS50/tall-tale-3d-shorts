@@ -26,6 +26,13 @@ you do" → **Stick Story** · a historical event, "how X happened" → **Paper 
 Each style = `styles/<style>/style-sheet.png` (the look in one image, drawn by the style's own code) + `STYLE.md` (the rules + the engine manual) +
 `example/` (a complete project that renders as-is). **Read the style's STYLE.md in full before planning.**
 
+## Optional craft references
+For richer Tall Tale sets, animation accents, or scene profiling, read
+[the external-skills guide](docs/external-skills.md#local-integration-review).
+It routes to the bundled Three.js and Blender guidance and camera/motion
+references. Load only the relevant material; the local capture pipeline and
+owner rules remain the production workflow.
+
 ## 0. First use on a computer
 `bash SKILL/scripts/setup.sh` until it prints **All set** (checks Node 22+, ffmpeg, Chrome; builds `~/.faceless-shorts/venv`;
 downloads the Kokoro voice ~340 MB and Whisper small.en ~0.5 GB). Install anything missing the free, official way, and ask

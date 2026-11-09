@@ -12,6 +12,11 @@ profile; the no-GPU llvmpipe profile is kept as a fallback).
 golden example in `examples/emu-war/`, and the planned Deep Dive 3D
 quality upgrade is in `docs/deep-dive-upgrade-plan.md`.
 
+The v2 package update adds four animation eases and bundled Three.js/Blender
+craft guidance with camera and motion references. See
+[the integration notes](docs/external-skills.md#local-integration-review)
+and [the update review](docs/review-v2-2026-11-10.md).
+
 ---
 # Tall Tale 3D Shorts: a local video skill
 

@@ -146,3 +146,22 @@ Use only when neither A nor B is available. Tell the owner you degraded.
   without the owner asking; copy another creator's script/shots/frames;
   overwrite an existing project without asking; commit credentials,
   tokens, or the Kokoro/Whisper model files to this repo.
+
+## External skills & references (added 2026-11-09)
+
+This repo carries a curated set of third-party agent skills and reference
+material, audited for the Tall Tale 3D style. The supplied audit and local integration corrections are in
+`docs/external-skills.md`. Read the local integration section before using
+the upstream guidance; machine-specific claims in the supplied audit are
+not verification of this laptop.
+
+- `external-skills/` — installable skills: three Three.js skills
+  (graphics building, debug/profiling, QA/release) plus a game-feel
+  reference, and 17 Blender authoring skills for offline set/prop work
+  (Blender is never the video renderer). All MIT, attribution retained.
+- `references/external/` — reading material, NOT skills: shotcraft
+  camera/rhythm shot cards, motionmaxxing measured-motion data and QA
+  gate definitions, 3dviz lighting/object-craft references and rigs.
+- Tall Tale's `src/core/lib.js` now includes four extra closed-form
+  eases (`eex`, `esi`, `eel`, `ebn`). Do NOT vendor GSAP (own license,
+  no benefit here) and do NOT copy anything from OpenMontage (AGPL).
