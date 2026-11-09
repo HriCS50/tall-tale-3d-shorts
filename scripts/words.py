@@ -37,6 +37,34 @@ def align(script_words, heard, t0, t1):
     return times
 
 
+
+def normalize_windows(words, lines):
+    """Keep captions ordered, nonempty and inside their narration cut.
+
+    Whisper can return zero-length words, and clipping a word at a TTS cut
+    boundary can collapse adjacent starts. Preserve the measured timings
+    except where a minimum 40 ms slot is needed to prevent a dropped caption.
+    """
+    for line in lines:
+        group = [w for w in words if w['line'] == line['i']]
+        if not group:
+            continue
+        lo, hi = line['start'], line['end']
+        if hi <= lo:
+            raise ValueError(f"Invalid narration window for line {line['i']}")
+        step = min(0.04, (hi - lo) / (2 * len(group)))
+        starts = [min(hi - step, max(lo, w['s'])) for w in group]
+        for i in range(len(starts) - 2, -1, -1):
+            starts[i] = min(starts[i], starts[i + 1] - step)
+        for i in range(len(starts)):
+            starts[i] = max(starts[i], lo if i == 0 else starts[i - 1] + step)
+        for i, w in enumerate(group):
+            limit = starts[i + 1] if i + 1 < len(group) else hi
+            w['s'] = round(starts[i], 4)
+            w['e'] = round(min(limit, max(starts[i] + step, w['e'])), 4)
+    return words
+
+
 def inline_fallback(P, S):
     L = json.loads((P / 'data/lines.json').read_text())['lines']; words = []
     for i, ln in enumerate(S['lines']):
@@ -46,6 +74,7 @@ def inline_fallback(P, S):
         for w, wt in zip(toks, wts):
             d = (hi - lo) * wt / tot; speak = d - (hi - lo) * (wt - len(norm(w)) - 2.5) / tot
             words.append({'w': w, 'line': i, 's': round(c, 3), 'e': round(c + speak * 0.92, 3)}); c += d
+    normalize_windows(words, json.loads((P / 'data/lines.json').read_text())['lines'])
     (P / 'data/words.json').write_text(json.dumps(words, indent=1))
     (P / 'data/words.txt').write_text('\n'.join(f"{w['s']:7.2f} {w['e']:7.2f}  L{w['line']:<2d} {w['w']}" for w in words))
     print(f'data/words.json: {len(words)} words (spread inside the voice line times)')
@@ -86,6 +115,7 @@ def main():
     else:   # keep every word inside its line's exact TTS window
         L = json.loads((P / 'data/lines.json').read_text())['lines']
         for w in words: lo, hi = L[w['line']]['start'], L[w['line']]['end']; w['s'] = round(min(max(w['s'], lo), hi), 3); w['e'] = round(min(max(w['e'], w['s']), hi), 3)
+    normalize_windows(words, json.loads((P / 'data/lines.json').read_text())['lines'])
     (P / 'data/words.json').write_text(json.dumps(words, indent=1))
     (P / 'data/words.txt').write_text('\n'.join(f"{w['s']:7.2f} {w['e']:7.2f}  L{w['line']:<2d} {w['w']}" for w in words))
     print(f'data/words.json: {len(words)} words (Whisper heard {len(heard)})')

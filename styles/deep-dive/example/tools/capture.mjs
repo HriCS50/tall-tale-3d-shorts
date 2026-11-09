@@ -14,6 +14,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// WinGet's FFmpeg package may exist before PATH has refreshed.
+if (process.platform === 'win32' && spawnSync('ffmpeg', ['-version'], {stdio:'ignore'}).error) {
+  const packages = path.join(os.homedir(), 'AppData/Local/Microsoft/WinGet/Packages');
+  if (fs.existsSync(packages)) for (const pkg of fs.readdirSync(packages).filter(n => n.startsWith('Gyan.FFmpeg_'))) {
+    const dir = path.join(packages, pkg);
+    for (const name of fs.readdirSync(dir).filter(n => n.startsWith('ffmpeg-'))) {
+      const bin = path.join(dir, name, 'bin');
+      if (fs.existsSync(path.join(bin, 'ffmpeg.exe'))) process.env.PATH = bin + path.delimiter + process.env.PATH;
+    }
+  }
+}
 const FPS = +(process.env.FPS || 30);
 const CHROME = [process.env.CHROME, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium',
   '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium',
@@ -29,7 +40,7 @@ function serve(port = 0) {
   return new Promise((res) => {
     const srv = http.createServer((req, r) => {
       const u = decodeURIComponent(req.url.split('?')[0]), f = path.join(ROOT, u === '/' ? 'index.html' : u);
-      if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
+      if ((path.relative(ROOT, f).startsWith('..') || path.isAbsolute(path.relative(ROOT, f))) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
       r.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
       fs.createReadStream(f).pipe(r);
     });
@@ -41,13 +52,16 @@ async function openPage(port) {
   if (!CHROME) throw new Error('Chrome not found: install Google Chrome or set CHROME=/path/to/chrome');
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'fs-chrome-'));
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${prof}`, '--no-first-run', '--no-default-browser-check',
-    '--hide-scrollbars', '--window-size=1080,1920', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', ...(process.env.SOFTWARE_GL ? ['--use-angle=swiftshader'] : []), ...(process.env.ANGLE ? ['--use-angle=' + process.env.ANGLE] : []), ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), '--disable-background-timer-throttling', '--disable-renderer-backgrounding', 'about:blank'], { stdio: 'ignore' });
+    '--hide-scrollbars', '--window-size=1080,1920', '--ignore-gpu-blocklist', ...(process.platform === 'win32' && !process.env.ANGLE && !process.env.SOFTWARE_GL ? ['--use-angle=d3d11', '--force_high_performance_gpu'] : []), ...(process.env.SOFTWARE_GL ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : []), ...(process.env.ANGLE ? ['--use-angle=' + process.env.ANGLE] : []), ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), '--disable-background-timer-throttling', '--disable-renderer-backgrounding', 'about:blank'], { stdio: 'ignore' });
+  const close = () => { chrome.kill(); setTimeout(() => { try { fs.rmSync(prof, { recursive: true, force: true }); } catch {} }, 1000); };
+  let ws;
+  try {
   let dbg;
   for (let i = 0; i < 200 && !dbg; i++) { try { dbg = fs.readFileSync(path.join(prof, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim(); } catch { await sleep(100); } }
   if (!dbg) throw new Error('Chrome did not start');
   const r = await fetch(`http://127.0.0.1:${dbg}/json/new?${encodeURIComponent(`http://127.0.0.1:${port}/index.html?capture=1${process.env.QS || ''}`)}`, { method: 'PUT' });
   const target = await r.json();
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   let id = 0; const pend = new Map(), logs = [];
   ws.onmessage = (e) => {
@@ -66,8 +80,8 @@ async function openPage(port) {
     if (i > 1200) throw new Error('boot timeout\n' + logs.join('\n'));
     await sleep(100);
   }
-  const close = () => { try { ws.close(); } catch {} chrome.kill('SIGKILL'); setTimeout(() => { try { fs.rmSync(prof, { recursive: true, force: true }); } catch {} }, 300); };
-  return { ev, logs, close };
+  return { ev, logs, close: () => { ws.close(); close(); } };
+  } catch (e) { try { ws?.close(); } catch {} close(); throw e; }
 }
 const jpg = (d) => Buffer.from(d.slice(d.indexOf(',') + 1), 'base64');
 const FRAME = (t, q, label) => `(() => { const d = OP.frame(${t}, ${q}); ${label ? `const cv = document.getElementById('cv'), c = cv.getContext('2d'); c.setTransform(1,0,0,1,0,0); c.fillStyle = '#000'; c.fillRect(0, 0, 250, 86); c.fillStyle = '#fff'; c.font = '700 60px sans-serif'; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillText('${(+t).toFixed(2)}', 14, 64); return cv.toDataURL('image/jpeg', ${q});` : 'return d;'} })()`;
@@ -75,16 +89,24 @@ const FRAME = (t, q, label) => `(() => { const d = OP.frame(${t}, ${q}); ${label
 const srv = await serve(mode === 'preview' ? 8765 : 0), port = srv.address().port;
 if (mode === 'preview') { console.log(`open http://127.0.0.1:${port}/  (Ctrl+C to stop)`); }
 else {
-  const P = await openPage(port);
+  let P;
+  try { P = await openPage(port); } catch (e) { srv.close(); throw e; }
   try {
     const dur = await P.ev('OP.duration()');
-    if (mode === 'check') {
+    const renderer = await P.ev(`(() => { const c = document.getElementById('gl'); if (!c) return null; const gl = c.getContext('webgl2') || c.getContext('webgl'); if (!gl) throw new Error('WebGL context unavailable'); const ext = gl.getExtension('WEBGL_debug_renderer_info'); return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
+    if (renderer) {
+      console.log('WebGL renderer: ' + renderer);
+      if (process.platform === 'win32' && !process.env.SOFTWARE_GL && !/NVIDIA/i.test(renderer)) throw new Error('Expected NVIDIA hardware rendering on this laptop; refusing long capture: ' + renderer);
+    }
+    if (mode === 'probe') { console.log(renderer ? 'GPU PROBE OK' : '2D canvas (no WebGL)');
+    } else if (mode === 'check') {
       console.log(`duration ${dur.toFixed(2)} s`);
       for (const s of await P.ev('OP.shots()')) console.log(`${s.id.padEnd(5)} ${s.at.toFixed(2).padStart(6)} → ${s.end.toFixed(2).padStart(6)}  (${(s.end - s.at).toFixed(2)} s)  ${s.note}`);
       console.log('captions:'); for (const c of await P.ev('OP.captions()')) console.log(`  ${c.s.toFixed(2).padStart(6)}–${c.e.toFixed(2).padEnd(6)} ${c.text}`);
       let bad = 0; for (let t = 0; t < dur; t += 0.25) { try { await P.ev(`OP.draw(${t})`); } catch (e) { bad++; console.log(`ERROR at ${t.toFixed(2)}: ${e.message.split('\n')[0]}`); } }
       if (P.logs.length) console.log(P.logs.join('\n'));
-      console.log(bad || P.logs.length ? 'CHECK FAILED' : 'CHECK OK');
+      if (bad || P.logs.length) throw new Error('CHECK FAILED');
+      console.log('CHECK OK');
     } else if (mode === 'cues') {
       const cues = await P.ev('OP.cues()');
       fs.mkdirSync(path.join(ROOT, 'data'), { recursive: true });
@@ -101,21 +123,26 @@ else {
       const rows = Math.ceil(n / cols); fs.mkdirSync(path.dirname(out), { recursive: true });
       const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-framerate', '1', '-i', path.join(tmp, 'f%04d.jpg'), '-vf', `scale=216:384,tile=${cols}x${rows}:padding=4:color=black`, '-frames:v', '1', '-q:v', '3', out]);
       fs.rmSync(tmp, { recursive: true, force: true });
-      if (r.status) throw new Error('ffmpeg: ' + r.stderr); console.log(`${out} (${n} frames, every ${step} s)`);
+      if (r.error || r.status !== 0) throw new Error('ffmpeg: ' + (r.error || r.stderr)); console.log(`${out} (${n} frames, every ${step} s)`);
     } else if (mode === 'video') {
       const out = path.resolve(ROOT, rest[0] || 'renders/video.mp4'); fs.mkdirSync(path.dirname(out), { recursive: true });
       const mix = path.join(ROOT, 'data/mix.wav'), hasMix = fs.existsSync(mix), a0 = rest[1] ? +rest[1] : 0, a1 = rest[2] ? Math.min(+rest[2], dur) : dur, n = Math.round((a1 - a0) * FPS);
       const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-',
         ...(hasMix ? ['-ss', String(a0), '-t', String(a1 - a0), '-i', mix] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']), '-map', '0:v', '-map', '1:a',
-        ...(process.env.FINISH ? ['-vf', 'hqdn3d=2:2:3:3,cas=0.55'] : []), '-c:v', 'libx264', '-preset', flags.has('--draft') ? 'ultrafast' : 'veryfast', '-crf', flags.has('--draft') ? '28' : '18', '-pix_fmt', 'yuv420p',
+        ...(process.env.FINISH === '1' ? ['-vf', 'hqdn3d=2:2:3:3,cas=0.55'] : []), '-c:v', 'libx264', '-preset', flags.has('--draft') ? 'ultrafast' : 'veryfast', '-crf', flags.has('--draft') ? '28' : '18', '-pix_fmt', 'yuv420p',
         '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+      let ffError;
+      const ffDone = new Promise((resolve, reject) => { ff.once('error', reject); ff.once('close', (code) => code === 0 ? resolve() : reject(new Error('ffmpeg exited with code ' + code))); });
+      ffDone.catch((e) => { ffError = e; });
+      ff.stdin.on('error', (e) => { ffError = e; });
       const t0 = Date.now();
       for (let i = 0; i < n; i++) {
         const b = jpg(await P.ev(FRAME(a0 + i / FPS, flags.has('--draft') ? 0.8 : 0.93)));
-        if (!ff.stdin.write(b)) await new Promise((r) => ff.stdin.once('drain', r));
+        if (ffError) throw ffError;
+        if (!ff.stdin.write(b)) await Promise.race([new Promise((resolve, reject) => { const clean = () => { ff.stdin.off('drain', drain); ff.stdin.off('error', error); }; const drain = () => { clean(); resolve(); }; const error = (e) => { clean(); reject(e); }; ff.stdin.once('drain', drain); ff.stdin.once('error', error); }), ffDone]);
         if (i % 150 === 0) process.stdout.write(`\r${i}/${n} frames`);
       }
-      ff.stdin.end(); await new Promise((r) => ff.on('close', r));
+      ff.stdin.end(); await ffDone;
       console.log(`\r${out} (${n} frames, ${hasMix ? 'with data/mix.wav' : 'SILENT: no data/mix.wav'}, ${((Date.now() - t0) / 1000).toFixed(0)} s)`);
     } else console.log('modes: check · cues · sheet · frames · video · preview');
   } finally { P.close(); srv.close(); }

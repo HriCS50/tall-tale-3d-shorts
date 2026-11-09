@@ -17,3 +17,11 @@ venv/
 Thumbs.db
 .vscode/
 node_modules/
+
+.selftest-*/
+*.log
+__pycache__/
+*.pyc
+.env
+.env.*
+*.part

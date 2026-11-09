@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.sh text eol=lf
+scripts/py text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.py text eol=lf
+*.png binary
+*.jpg binary
+*.otf binary
+*.ttf binary

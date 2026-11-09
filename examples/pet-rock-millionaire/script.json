@@ -1,0 +1,79 @@
+{
+  "title": "The Pet That Made a Millionaire",
+  "voice": "am_michael",
+  "speed": 1.08,
+  "music": "bounce",
+  "lead": 0.3,
+  "outro": 1.0,
+  "gap": 0.15,
+  "lines": [
+    {
+      "text": "This man got rich selling a pet"
+    },
+    {
+      "text": "that was literally a rock."
+    },
+    {
+      "text": "In nineteen seventy-five, Gary Dahl had an idea."
+    },
+    {
+      "text": "You see, a rock never needed feeding,"
+    },
+    {
+      "text": "walking, or cleaning up after."
+    },
+    {
+      "text": "His customers could already find one outside."
+    },
+    {
+      "text": "So why would anybody pay for it?"
+    },
+    {
+      "text": "Because Gary sold the whole joke."
+    },
+    {
+      "text": "Each rock came in a little carrier"
+    },
+    {
+      "text": "with air holes and a bed of wood shavings."
+    },
+    {
+      "text": "He even included a training manual."
+    },
+    {
+      "text": "Teaching it to stay? Unbeatable."
+    },
+    {
+      "text": "The price was three dollars and ninety-five cents."
+    },
+    {
+      "text": "And by Christmas, more than a million had sold."
+    },
+    {
+      "text": "Our skeptical shopper suddenly wanted two."
+    },
+    {
+      "text": "The craze faded the following year,"
+    },
+    {
+      "text": "but Gary had become a millionaire."
+    },
+    {
+      "text": "The pet did absolutely nothing."
+    },
+    {
+      "text": "Its owner was the one who fetched the money."
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://www.museumofplay.org/blog/rock-on-gary-dahl/",
+      "supports": "Gary Dahl, 1975; a stone sold in a carrier with wood shavings and a humorous training manual; over one million sold by Christmas; the fad ended in 1976."
+    },
+    {
+      "url": "https://moaph.org/article-archives/easiest-pet-ever/",
+      "supports": "Carrier air holes; retail price $3.95; the fad made Dahl a millionaire."
+    }
+  ],
+  "production_notes": "Original comic dramatization. The shopper and reactions are fictional; no dialogue is presented as a historical quotation. The pet rock is drawn without a face to emphasize the joke. Target 40-60 seconds, 1080x1920, 30 fps."
+}

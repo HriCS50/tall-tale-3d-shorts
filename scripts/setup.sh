@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$(cd "$(dirname "$0")" && pwd)/runtime.sh"
 # One-time setup. Safe to re-run. Prints "All set" when everything works (~0.9 GB of downloads, all free).
 #   checks Node.js 22+, ffmpeg, Chrome · builds the private Python env in ~/.faceless-shorts/venv
 #   (numpy, scipy, kokoro-onnx, faster-whisper) · downloads the Kokoro voice (~340 MB) and Whisper small.en (~0.5 GB)

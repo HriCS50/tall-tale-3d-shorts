@@ -9,6 +9,8 @@ USAGE="usage: new_video.sh <style> <short-name> [--dir <parent>]   (styles: $(ls
 STYLE="${1:?$USAGE}"; NAME="${2:?$USAGE}"; shift 2
 PARENT="$HOME/faceless-shorts"
 while [ $# -gt 0 ]; do case "$1" in --dir) PARENT="${2:?}"; shift 2 ;; *) echo "unknown option $1" >&2; exit 2 ;; esac; done
+[[ "$STYLE" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo 'Invalid style name' >&2; exit 2; }
+[[ "$NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]] || { echo 'Invalid project name' >&2; exit 2; }
 SRC="$SKILL/styles/$STYLE/example"
 [ -d "$SRC" ] || { echo "no style '$STYLE' ($USAGE)" >&2; exit 2; }
 DST="$PARENT/$NAME"
