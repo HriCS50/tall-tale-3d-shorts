@@ -1,0 +1,19 @@
+# Render outputs and QA scratch (regenerable)
+**/renders/*.mp4
+**/review/
+!**/renders/*cover*.png
+
+# Generated audio (regenerable via voice.py / mix.py)
+**/data/narration.wav
+**/data/mix.wav
+
+# Local models and envs (downloaded by scripts/setup.sh)
+.faceless-shorts/
+venv/
+*.onnx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+node_modules/
